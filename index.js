@@ -5,11 +5,17 @@
 const program = require('commander');
 var yaml = require('js-yaml');
 var yamlGenerator = require('yamljs');
-
+const {Translate} = require('@google-cloud/translate');
+const projectId = 'YOUR_PROJECT_ID';
 const fs = require('fs')
 const { join } = require('path')
 var nestedProperty = require("nested-property");
 var docFr;
+
+const translate = new Translate({
+  projectId: projectId,
+});
+
 const isDirectory = source => fs.lstatSync(source).isDirectory()
 const getDirectories = source =>
   fs.readdirSync(source).map(name => join(source, name)).filter(isDirectory)
@@ -41,10 +47,8 @@ function iterateDirectories(path) {
           if(err) {
               return console.log(err);
           }
-
           console.log("The file was saved!");
       });
-      console.log('===========');
       return;
     }
   }
@@ -54,6 +58,7 @@ function iterate(obj, stack) {
   let fullPath = (stack) ? stack + '.' : '';
   let realPath;
   let translatedValue;
+  let translated;
   for (var property in obj) {
     if (obj.hasOwnProperty(property)) {
       if (typeof obj[property] == "object") {
@@ -62,33 +67,25 @@ function iterate(obj, stack) {
         console.log('EN:')
         console.log(fullPath + property + "   " + obj[property]);
         console.log('FR:')
-        console.log(docFr);
-        translatedValue = deepFind(docFr, fullPath + property);
-        if(typeof translatedValue == "undefined"){
-          realPath = fullPath + property;
-          realPath = realPath.substring(1);
+        realPath = fullPath + property;
+        realPath = realPath.substring(1);
+        translatedValue = nestedProperty.get(docFr,realPath);
+        console.log(realPath + "   " + translatedValue);
+        if(typeof translatedValue == "undefined" && typeof obj[property] == "string"){
           nestedProperty.set(docFr,realPath,obj[property])
+          translate
+            .translate(obj[property], 'fr')
+            .then(results => {
+              const translation = results[0];
+              nestedProperty.set(docFr,realPath,translation)
+            })
+            .catch(err => {
+              console.error('ERROR:', err);
+            });
         }
       }
     }
   }
-}
-
-function deepFind(obj, path) {
-  path = path.substring(1)
-  var paths = path.split('.')
-  , current = obj
-  , i;
-
-  for (i = 0; i < paths.length; ++i) {
-    console.log(current);
-    if (current[paths[i]] == undefined) {
-      return undefined;
-    } else {
-      current = current[paths[i]];
-    }
-  }
-  return current;
 }
 
 program
