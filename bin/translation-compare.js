@@ -130,7 +130,6 @@ async function addKeys(refLanguage, refDoc, toLanguage, doc) {
         // if reference prop is a string and current doc doesn't have it, add it to target
         if (!doc.hasOwnProperty(prop)) {
           try {
-            console.log({ from: refLanguage, to: toLanguage });
             let res = await translate(refDoc[prop], { from: refLanguage, to: toLanguage });
             doc[prop] = res.text;
           } catch(e) {
