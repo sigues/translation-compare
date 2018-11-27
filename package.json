@@ -1,0 +1,18 @@
+{
+  "name": "translation-compare",
+  "version": "1.0.0",
+  "description": "compare transations",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "commander": "^2.19.0",
+    "google-translate": "^2.2.0",
+    "js-yaml": "^3.12.0",
+    "nested-property": "0.0.7",
+    "yamljs": "^0.3.0"
+  }
+}
