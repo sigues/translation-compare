@@ -1,18 +1,25 @@
 {
   "name": "translation-compare",
   "version": "1.0.0",
-  "description": "compare transations",
-  "main": "index.js",
+  "description": "compare translations",
+  "main": "bin/translation-compare.js",
+  "bin": {
+    "translation-compare": "bin/translation-compare.js"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "debug": "node --inspect-brk index.js"
   },
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=8"
+  },
   "dependencies": {
-    "@google-cloud/translate": "^2.1.2",
+    "bcp-47": "^1.0.4",
     "commander": "^2.19.0",
-    "js-yaml": "^3.12.0",
-    "nested-property": "0.0.7",
-    "yamljs": "^0.3.0"
+    "glob": "^7.1.3",
+    "google-translate-api": "github:vitalets/google-translate-api",
+    "js-yaml": "^3.12.0"
   }
 }
