@@ -133,8 +133,7 @@ async function addKeys(refLanguage, refDoc, toLanguage, doc) {
             let res = await translate(refDoc[prop], { from: refLanguage, to: toLanguage });
             doc[prop] = res.text;
           } catch(e) {
-            console.error(e);
-            doc[prop] = refDoc[prop];
+            console.error(`Error translating "${refDoc[prop]}". Probably a bad server response. Please try again later.`, e);
           }
           
         }
