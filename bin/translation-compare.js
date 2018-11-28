@@ -8,29 +8,94 @@ const fs = require('fs');
 const program = require('commander');
 const yaml = require('js-yaml');
 const bcp47 = require('bcp-47');
-const translate = require('google-translate-api');
+const Translate = require('@google-cloud/translate').Translate;
+const format = require('string-format');
+
+class TranslationToken {
+  constructor(source) {
+    let placeholders = [];
+    let nesting = 0;
+    let currentPlaceholder = '';
+    let translationSafeWord = '';
+
+    for (let i = 0; i < source.length; i++) {
+      if (nesting === 0) {
+        translationSafeWord += source.charAt(i);
+      }
+
+      if (source.charAt(i) === '{') {
+        nesting++;
+      }
+
+      if (nesting > 0) {
+        currentPlaceholder += source.charAt(i);
+      }
+
+      if (source.charAt(i) === '}') {
+        nesting--;
+        if (nesting === 0) {
+          placeholders.push(currentPlaceholder);
+          currentPlaceholder = '';
+          translationSafeWord += source.charAt(i);
+        }
+      }
+      
+    }
+
+    this.source = source;
+    this.placeholders = placeholders;
+    this.translationSafeWord = translationSafeWord;
+  }
+
+  /**
+   * removes placeholders from message
+   * e.g "How are you, {name}?" becomes "How are you, {}?"
+   * Google translate will leave the {} untouched, so that we can fill it in later.
+   * @returns {string}
+   */
+  getTranslationSafe() {
+    return this.translationSafeWord;
+  }
+
+  /**
+   * takes a translated text with {} placeholders and fills it with the orignal placeholder values values
+   * e.g "Comment vas-tu, {}?" becomes "Comment vas-tu, {name}?"
+   * @param {string} translation the translated text
+   */
+  rebuildPlaceholders(translation) {
+    return format(translation, ...this.placeholders);
+  }
+}
 
 const DEFAULT_REF_LOCALE = 'en-us';
 const DEFAULT_GLOB = `**/${DEFAULT_REF_LOCALE}.{yml,yaml}`;
 const DEFAULT_TARGET_LOCALES = ['fr-fr'];
-
-// ember-intl (which uses Intl.js) uses bcp47 locale codes in
-// its locale file yaml names. the bcp47 package allows us to find the
-// language code of a bcp47 identifier. That language code will then be sent to google translate.
+const DEFAULT_KEY_FILE = 'key.json';
 
 program
   .version(require('../package.json').version)
-  .option('-p, --path [optional]', 'path to look for yaml files')
-  .option('-ref, --reference [optional]', `locale bcp47 identifier in which the reference files are written in. default is ${DEFAULT_REF_LOCALE}.`)
-  .option('-t, --targets [optional]', `a comma separated list of bcp47 target locales to create files from reference. default is ${DEFAULT_TARGET_LOCALES}.`)
-  .option('-g, --glob [optional]', `glob used to look for yaml files. default is ${DEFAULT_GLOB}.`)
+  .option('-p, --path <path>', 'path to look for yaml files')
+  .option('-r, --reference <identifier>', `locale bcp47 identifier in which the reference files are written in, default is "${DEFAULT_REF_LOCALE}"`)
+  .option('-t, --targets <targets>', `a comma separated list of bcp47 target locales to create files from reference, default is "${DEFAULT_TARGET_LOCALES}"`)
+  .option('-g, --glob <glob>', `glob used to look for yaml files, default is "${DEFAULT_GLOB}"`)
+  .option('-k, --key-file <path>', `account key file used to identify with google, default is "${DEFAULT_KEY_FILE}"`)
   .parse(process.argv);
 
 const rootPath = path.resolve(process.cwd(), program.path || '.');
 const globValue = program.glob || DEFAULT_GLOB;
 const refLocale = program.reference || DEFAULT_REF_LOCALE;
 const targetLocales = program.targets ? program.targets.split(',').map((s) => s.trim()) : DEFAULT_TARGET_LOCALES;
+
+// ember-intl (which uses Intl.js) uses bcp47 locale codes in
+// its locale file yaml names. the bcp47 package allows us to find the
+// language code of a bcp47 identifier. That language code will then be sent to google translate.
 const refLanguage = bcp47.parse(refLocale).language;
+const keyFile = program.keyFile || DEFAULT_KEY_FILE;
+
+// Instantiates a client
+const translate = new Translate({
+  keyFilename: keyFile
+});
 
 run();
 
@@ -130,10 +195,14 @@ async function addKeys(refLanguage, refDoc, toLanguage, doc) {
         // if reference prop is a string and current doc doesn't have it, add it to target
         if (!doc.hasOwnProperty(prop)) {
           try {
-            let res = await translate(refDoc[prop], { from: refLanguage, to: toLanguage });
-            doc[prop] = res.text;
+            let t = new TranslationToken(refDoc[prop]);
+            let results = await translate.translate(t.getTranslationSafe(), {
+              from: refLanguage,
+              to: toLanguage
+            });
+            doc[prop] = t.rebuildPlaceholders(results[0]);
           } catch(e) {
-            console.error(`Error translating "${refDoc[prop]}". Probably a bad server response. Please try again later.`, e);
+            console.error(`Error translating "${refDoc[prop]}". Probably a bad server response. Please try again later.\n`, e);
           }
           
         }

@@ -1,2 +1,5 @@
 test:
-  a: How are you?
+  a: How are you, {name}? Fine!
+  b: Every {value, plural,
+      =1 {week}
+      other {# weeks}}
